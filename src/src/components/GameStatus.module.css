@@ -1,0 +1,56 @@
+.statusContainer {
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 1.2rem;
+}
+
+.scoreContainer {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 15px;
+}
+
+.scoreBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blackPiece, .whitePiece {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.blackPiece {
+  background-color: #000;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+.whitePiece {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.turnIndicator {
+  font-weight: 500;
+}
+
+.blackText {
+  color: #000;
+  font-weight: 700;
+  margin-left: 5px;
+}
+
+.whiteText {
+  color: #666;
+  font-weight: 700;
+  margin-left: 5px;
+}
+
+.gameOverMessage {
+  font-weight: 700;
+  color: #e74c3c;
+}
