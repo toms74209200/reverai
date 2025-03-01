@@ -2,8 +2,11 @@
   display: flex;
   flex-direction: column;
   margin: 20px 0;
-  border: 2px solid #333;
+  border: 3px solid #333;
   background-color: #1e8449;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 
 .row {
@@ -11,13 +14,20 @@
 }
 
 .cell {
-  width: 60px;
-  height: 60px;
-  border: 1px solid #333;
+  width: 65px;
+  height: 65px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
+  position: relative;
+  background: linear-gradient(to bottom right, #218c4e, #196f3d);
+  transition: all 0.15s ease;
+}
+
+.cell:hover:not(.disabled) {
+  background: linear-gradient(to bottom right, #27ae60, #1e8449);
 }
 
 .cell.disabled {
@@ -26,26 +36,68 @@
 }
 
 .piece {
-  width: 45px;
-  height: 45px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   transition: all 0.3s ease;
+  transform-origin: center center;
+  animation: place-piece 0.3s ease forwards;
 }
 
 .black {
-  background-color: #000;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  background: radial-gradient(circle at 30% 30%, #333, #000);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
 .white {
-  background-color: #fff;
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  background: radial-gradient(circle at 30% 30%, #fff, #e6e6e6);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .validMove {
-  background-color: rgba(0, 255, 0, 0.2);
+  position: relative;
 }
 
-.validMove:hover:not(.disabled) {
-  background-color: rgba(0, 255, 0, 0.4);
+.validMove::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.validMove:hover:not(.disabled)::after {
+  background-color: rgba(255, 255, 255, 0.5);
+  animation: none;
+}
+
+@keyframes place-piece {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
 }
