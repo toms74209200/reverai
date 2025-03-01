@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::{generate_handler, Manager, Runtime, State};
+use tauri::State;
 
 pub mod game;
 
@@ -18,46 +18,48 @@ pub struct SerializedGameState {
     pub white_score: usize,
 }
 
-// 新しいゲームを開始するコマンド
-#[tauri::command]
-pub fn new_game(state: State<AppState>) -> Result<SerializedGameState, String> {
-    let mut game_board = state
-        .game
-        .lock()
-        .map_err(|_| "Failed to lock game state".to_string())?;
-    *game_board = game::GameBoard::new();
-    let game_state = game_board.get_state();
+// Commands module
+pub mod commands {
+    use super::*;
 
-    Ok(serialize_game_state(&game_state))
-}
-
-// 指定した位置に駒を配置するコマンド
-#[tauri::command]
-pub fn make_move(
-    position: game::Position,
-    state: State<AppState>,
-) -> Result<SerializedGameState, String> {
-    let mut game_board = state
-        .game
-        .lock()
-        .map_err(|_| "Failed to lock game state".to_string())?;
-
-    if !game_board.place_piece(position) {
-        return Err("Invalid move".to_string());
+    // 新しいゲームを開始するコマンド
+    #[tauri::command]
+    pub fn new_game(state: State<AppState>) -> Result<SerializedGameState, String> {
+        let mut game_board = state
+            .game
+            .lock()
+            .map_err(|_| "Failed to lock game state".to_string())?;
+        *game_board = game::GameBoard::new();
+        let game_state = game_board.get_state();
+        Ok(serialize_game_state(&game_state))
     }
 
-    let game_state = game_board.get_state();
-    Ok(serialize_game_state(&game_state))
-}
+    // 指定した位置に駒を配置するコマンド
+    #[tauri::command]
+    pub fn make_move(
+        position: game::Position,
+        state: State<AppState>,
+    ) -> Result<SerializedGameState, String> {
+        let mut game_board = state
+            .game
+            .lock()
+            .map_err(|_| "Failed to lock game state".to_string())?;
+        if !game_board.place_piece(position) {
+            return Err("Invalid move".to_string());
+        }
+        let game_state = game_board.get_state();
+        Ok(serialize_game_state(&game_state))
+    }
 
-// 現在の有効な手の一覧を取得するコマンド
-#[tauri::command]
-pub fn get_valid_moves(state: State<AppState>) -> Result<Vec<game::Position>, String> {
-    let game_board = state
-        .game
-        .lock()
-        .map_err(|_| "Failed to lock game state".to_string())?;
-    Ok(game_board.get_valid_moves())
+    // 現在の有効な手の一覧を取得するコマンド
+    #[tauri::command]
+    pub fn get_valid_moves(state: State<AppState>) -> Result<Vec<game::Position>, String> {
+        let game_board = state
+            .game
+            .lock()
+            .map_err(|_| "Failed to lock game state".to_string())?;
+        Ok(game_board.get_valid_moves())
+    }
 }
 
 // ゲーム状態をフロントエンド用にシリアライズする関数
@@ -91,17 +93,18 @@ fn serialize_game_state(state: &game::GameState) -> SerializedGameState {
 }
 
 // Tauriアプリケーションのエントリーポイント
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // アプリケーション状態の初期化
     let game_state = Mutex::new(game::GameBoard::new());
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_log::Builder::default().build())
         .manage(AppState { game: game_state })
         // コマンドハンドラの登録
-        .invoke_handler(generate_handler![new_game, make_move, get_valid_moves])
+        .invoke_handler(tauri::generate_handler![
+            commands::new_game,
+            commands::make_move,
+            commands::get_valid_moves
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
