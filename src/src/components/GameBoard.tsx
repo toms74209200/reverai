@@ -1,15 +1,10 @@
 "use client";
-
 import React, { useCallback } from 'react';
 import styles from './GameBoard.module.css';
-
-type PieceType = {
-  Black?: {};
-  White?: {};
-} | null;
+import { Cell } from '../game/GameState';
 
 interface GameBoardProps {
-  board: PieceType[][];
+  board: Cell[][];
   validMoves: { row: number; col: number }[];
   onCellClick: (row: number, col: number) => void;
   disabled?: boolean;
@@ -30,9 +25,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return validMoves.some(move => move.row === row && move.col === col);
   }, [validMoves]);
 
-  const getPieceColor = (piece: PieceType): string | null => {
+  const getPieceColor = (piece: Cell): string | null => {
     if (!piece) return null;
-    return 'Black' in piece ? 'black' : 'white';
+    return piece.toLowerCase(); // 'Black' -> 'black', 'White' -> 'white'
   };
 
   return (

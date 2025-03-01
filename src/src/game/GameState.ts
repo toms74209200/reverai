@@ -1,118 +1,126 @@
-export type Player = 'Black' | 'White';
-export type Cell = { Black: {} } | { White: {} } | null;
-export type Board = Cell[][];
-export type Position = { row: number; col: number };
+import { GameState as TauriGameState, Position, newGame, makeMove, getValidMoves, mockTauriInterface } from './TauriInterface';
 
-const DIRECTIONS = [
-  [-1, -1], [-1, 0], [-1, 1],
-  [0, -1],          [0, 1],
-  [1, -1],  [1, 0],  [1, 1]
-] as const;
+export type Player = 'Black' | 'White';
+export type Cell = string | null; // 'Black' | 'White' | null
 
 export class GameState {
-  private board: Board;
+  private board: Cell[][];
   private currentTurn: Player;
   private blackScore: number;
   private whiteScore: number;
   private gameOver: boolean;
+  private validMoves: Position[];
+  private useBackend: boolean;
 
-  constructor() {
+  constructor(useBackend: boolean = true) {
     this.board = Array(4).fill(null).map(() => Array(4).fill(null));
-    this.initializeBoard();
     this.currentTurn = 'Black';
-    this.updateScores();
+    this.blackScore = 2;
+    this.whiteScore = 2;
     this.gameOver = false;
-  }
-
-  private initializeBoard(): void {
-    // Set initial pieces
-    this.board[1][1] = { White: {} };
-    this.board[1][2] = { Black: {} };
-    this.board[2][1] = { Black: {} };
-    this.board[2][2] = { White: {} };
-  }
-
-  private updateScores(): void {
-    let black = 0;
-    let white = 0;
+    this.validMoves = [];
+    this.useBackend = useBackend;
     
-    for (let row = 0; row < 4; row++) {
-      for (let col = 0; col < 4; col++) {
-        const cell = this.board[row][col];
-        if (cell) {
-          if ('Black' in cell) black++;
-          if ('White' in cell) white++;
-        }
+    // 初期化すると同時にバックエンドと同期
+    this.initializeGame();
+  }
+
+  private async initializeGame(): Promise<void> {
+    try {
+      if (this.useBackend) {
+        const gameState = await newGame();
+        this.updateStateFromBackend(gameState);
+      } else {
+        // デバッグモード: モック実装を使用
+        const gameState = await mockTauriInterface.newGame();
+        this.updateStateFromBackend(gameState);
       }
+    } catch (error) {
+      console.error('Failed to initialize game:', error);
+      this.initializeLocalBoard();
     }
+  }
+
+  // バックエンド通信に失敗した場合のフォールバック処理
+  private initializeLocalBoard(): void {
+    this.board = Array(4).fill(null).map(() => Array(4).fill(null));
+    this.board[1][1] = 'White';
+    this.board[1][2] = 'Black';
+    this.board[2][1] = 'Black';
+    this.board[2][2] = 'White';
+    this.currentTurn = 'Black';
+    this.blackScore = 2;
+    this.whiteScore = 2;
+    this.gameOver = false;
+    this.validMoves = [
+      { row: 0, col: 2 },
+      { row: 1, col: 3 },
+      { row: 2, col: 0 },
+      { row: 3, col: 1 }
+    ];
+  }
+
+  private updateStateFromBackend(gameState: TauriGameState): void {
+    // バックエンドからの状態を現在の状態に反映
+    this.board = gameState.board.map(row => 
+      row.map(cell => cell)
+    );
     
-    this.blackScore = black;
-    this.whiteScore = white;
+    this.currentTurn = gameState.current_turn as Player;
+    this.blackScore = gameState.black_score;
+    this.whiteScore = gameState.white_score;
+    this.gameOver = gameState.game_over;
+    
+    // 有効な手の更新
+    this.updateValidMoves();
   }
 
-  private isValidPosition(row: number, col: number): boolean {
-    return row >= 0 && row < 4 && col >= 0 && col < 4;
-  }
-
-  private getCellOwner(cell: Cell): Player | null {
-    if (!cell) return null;
-    return 'Black' in cell ? 'Black' : 'White';
-  }
-
-  private getOpponent(player: Player): Player {
-    return player === 'Black' ? 'White' : 'Black';
-  }
-
-  private wouldFlipInDirection(row: number, col: number, dir: readonly [number, number]): boolean {
-    const [dx, dy] = dir;
-    let x = row + dx;
-    let y = col + dy;
-    let foundOpponent = false;
-
-    while (this.isValidPosition(x, y)) {
-      const cell = this.board[x][y];
-      const owner = this.getCellOwner(cell);
-
-      if (!owner) return false;
-      if (owner === this.currentTurn) return foundOpponent;
-      if (owner === this.getOpponent(this.currentTurn)) foundOpponent = true;
-
-      x += dx;
-      y += dy;
-    }
-
-    return false;
-  }
-
-  private flipPiecesInDirection(row: number, col: number, dir: readonly [number, number]): void {
-    const [dx, dy] = dir;
-    let x = row + dx;
-    let y = col + dy;
-
-    const piecesToFlip: Position[] = [];
-
-    while (this.isValidPosition(x, y)) {
-      const cell = this.board[x][y];
-      const owner = this.getCellOwner(cell);
-
-      if (!owner) break;
-      if (owner === this.currentTurn) {
-        // Flip all pieces in the collected positions
-        piecesToFlip.forEach(pos => {
-          this.board[pos.row][pos.col] = { [this.currentTurn]: {} };
-        });
-        break;
+  async updateValidMoves(): Promise<void> {
+    try {
+      if (this.useBackend) {
+        this.validMoves = await getValidMoves();
+      } else {
+        this.validMoves = await mockTauriInterface.getValidMoves();
       }
-      if (owner === this.getOpponent(this.currentTurn)) {
-        piecesToFlip.push({ row: x, col: y });
-      }
-
-      x += dx;
-      y += dy;
+    } catch (error) {
+      console.error('Failed to get valid moves:', error);
+      this.validMoves = [];
     }
   }
 
-  getBoard(): Board {
+  async resetGame(): Promise<void> {
+    try {
+      if (this.useBackend) {
+        const gameState = await newGame();
+        this.updateStateFromBackend(gameState);
+      } else {
+        const gameState = await mockTauriInterface.newGame();
+        this.updateStateFromBackend(gameState);
+      }
+    } catch (error) {
+      console.error('Failed to reset game:', error);
+      this.initializeLocalBoard();
+    }
+  }
+
+  async makeMove(position: Position): Promise<boolean> {
+    try {
+      if (this.useBackend) {
+        const gameState = await makeMove(position);
+        this.updateStateFromBackend(gameState);
+        return true;
+      } else {
+        const gameState = await mockTauriInterface.makeMove(position);
+        this.updateStateFromBackend(gameState);
+        return true;
+      }
+    } catch (error) {
+      console.error('Failed to make move:', error);
+      return false;
+    }
+  }
+
+  getBoard(): Cell[][] {
     return this.board.map(row => [...row]);
   }
 
@@ -132,66 +140,6 @@ export class GameState {
   }
 
   getValidMoves(): Position[] {
-    const validMoves: Position[] = [];
-    
-    for (let row = 0; row < 4; row++) {
-      for (let col = 0; col < 4; col++) {
-        if (this.board[row][col]) continue;
-        
-        // Check if placing a piece here would flip any opponent's pieces
-        const wouldFlip = DIRECTIONS.some(dir => this.wouldFlipInDirection(row, col, dir));
-        if (wouldFlip) {
-          validMoves.push({ row, col });
-        }
-      }
-    }
-    
-    return validMoves;
-  }
-
-  makeMove(position: Position): boolean {
-    const { row, col } = position;
-    
-    // Check if position is valid
-    if (!this.isValidPosition(row, col)) return false;
-    
-    // Check if cell is empty
-    if (this.board[row][col]) return false;
-    
-    // Check if this move would flip any pieces
-    const validDirections = DIRECTIONS.filter(dir => this.wouldFlipInDirection(row, col, dir));
-    if (validDirections.length === 0) return false;
-    
-    // Place the piece
-    this.board[row][col] = { [this.currentTurn]: {} };
-    
-    // Flip pieces in all valid directions
-    validDirections.forEach(dir => this.flipPiecesInDirection(row, col, dir));
-    
-    // Update scores
-    this.updateScores();
-    
-    // Change turn
-    this.currentTurn = this.getOpponent(this.currentTurn);
-    
-    // Check if game is over (no valid moves for next player)
-    const nextPlayerHasValidMoves = this.getValidMoves().length > 0;
-    if (!nextPlayerHasValidMoves) {
-      // Check if current player would have valid moves
-      const tempTurn = this.currentTurn;
-      this.currentTurn = this.getOpponent(this.currentTurn);
-      const currentPlayerHasValidMoves = this.getValidMoves().length > 0;
-      this.currentTurn = tempTurn;
-
-      // If neither player has valid moves, game is over
-      if (!currentPlayerHasValidMoves) {
-        this.gameOver = true;
-      } else {
-        // Skip turn if next player has no valid moves
-        this.currentTurn = this.getOpponent(this.currentTurn);
-      }
-    }
-    
-    return true;
+    return [...this.validMoves];
   }
 }

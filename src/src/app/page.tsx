@@ -36,9 +36,18 @@ const mockValidMoves = [
   { row: 3, col: 1 }
 ];
 
-// Tauriのinvokeが利用可能かチェックする関数
-const isTauriAvailable = () => {
-  return typeof window !== 'undefined' && 'Tauri' in window;
+// Tauriのinvokeが利用可能かチェックする関数を改善
+const isTauriAvailable = async () => {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const { getVersion } = await import('@tauri-apps/api/app');
+    await getVersion();
+    return true;
+  } catch (e) {
+    console.warn('Tauri is not available:', e);
+    return false;
+  }
 };
 
 export default function Home() {
@@ -76,15 +85,16 @@ export default function Home() {
     try {
       setMessage(null);
       setError(null);
+      setLoading(true);
       
-      // Tauriが利用可能か確認
-      if (isTauriAvailable()) {
+      const tauriAvailable = await isTauriAvailable();
+      
+      if (tauriAvailable) {
         try {
           const { invoke } = await import('@tauri-apps/api/tauri');
           const newGameState = await invoke<GameState>('new_game');
           setGameState(newGameState);
           await fetchValidMoves();
-          setLoading(false);
           setPreviousTurn('Black');
         } catch (err) {
           console.warn('Failed to use Tauri, falling back to mock data:', err);
@@ -99,6 +109,8 @@ export default function Home() {
       console.error('Failed to initialize game:', err);
       // エラー時にもモックデータを使用
       useMockData();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,20 +141,25 @@ export default function Home() {
   // Handle cell click to make a move
   const handleCellClick = async (row: number, col: number) => {
     if (!gameState || gameState.game_over) return;
-
+    
     try {
       setMessage(null);
       
       if (usingMock) {
         // モックの場合は簡易的な動作をシミュレート
         simulateMockMove(row, col);
-      } else if (isTauriAvailable()) {
-        const { invoke } = await import('@tauri-apps/api/tauri');
-        const updatedState = await invoke<GameState>('make_move', { 
-          position: { row, col } 
-        });
-        setGameState(updatedState);
-        await fetchValidMoves();
+      } else {
+        const tauriAvailable = await isTauriAvailable();
+        if (tauriAvailable) {
+          const { invoke } = await import('@tauri-apps/api/tauri');
+          const updatedState = await invoke<GameState>('make_move', { 
+            position: { row, col } 
+          });
+          setGameState(updatedState);
+          await fetchValidMoves();
+        } else {
+          throw new Error('Tauri is not available');
+        }
       }
     } catch (err) {
       setError('Invalid move');
