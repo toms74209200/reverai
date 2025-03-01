@@ -4,7 +4,7 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "devPath": "http://localhost:3000",
-    "distDir": "../out",
+    "distDir": "../.next",
     "withGlobalTauri": true
   },
   "package": {
@@ -12,6 +12,13 @@
     "version": "0.1.0"
   },
   "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    },
     "bundle": {
       "active": true,
       "targets": "all",
@@ -25,7 +32,7 @@
       ]
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: http://localhost:*"
     },
     "windows": [
       {
